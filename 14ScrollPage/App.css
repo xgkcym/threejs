@@ -1,0 +1,19 @@
+canvas{
+    position: fixed;
+    top: 0;
+    left: 0;
+    outline: none;
+}
+section{
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    color: #f2f2f2;
+    position: relative;
+    padding: 0 10%;
+    font-size: 10vmin;
+}
+section:nth-child(odd)
+{
+    justify-content: flex-end;
+}
