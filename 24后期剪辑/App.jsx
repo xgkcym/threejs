@@ -10,7 +10,8 @@ import { GlitchPass } from 'three/examples/jsm/postprocessing/GlitchPass'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass'
 import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader'
 import { GammaCorrectionShader } from 'three/examples/jsm/shaders/GammaCorrectionShader'
-
+import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
 
 function init() {
   const windowSize = {
@@ -104,7 +105,7 @@ function init() {
 
 
   const canvas = document.querySelector('#webgl')
-  const renderer = new THREE.WebGL1Renderer({
+  const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true
   })
@@ -118,33 +119,113 @@ function init() {
   renderer.toneMappingExposure = 1.5
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
-  const renderTarget = new THREE.WebGLRenderTarget(800,600,{
-    samples:2
+  console.log(renderer.getPixelRatio());
+  const renderTarget = new THREE.WebGLRenderTarget(800, 600, {
+    samples: renderer.getPixelRatio() === 1 ? 2 : 0
   })
 
-  const effectComposer = new EffectComposer(renderer,renderTarget)
+  const effectComposer = new EffectComposer(renderer, renderTarget)
   effectComposer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   effectComposer.setSize(windowSize.width, windowSize.height)
 
   const renderPass = new RenderPass(Scene, camera)
   effectComposer.addPass(renderPass)
 
+  // 黑白电视
   const dotScreenPass = new DotScreenPass()
   dotScreenPass.enabled = false
   effectComposer.addPass(dotScreenPass)
 
-
+  // 闪动特效
   const glitchPass = new GlitchPass()
   // glitchPass.goWild = true
-  glitchPass.enabled = true
+  glitchPass.enabled = false
   effectComposer.addPass(glitchPass)
 
+  // 模糊
   const rgbShifPass = new ShaderPass(RGBShiftShader)
   rgbShifPass.enabled = false
   effectComposer.addPass(rgbShifPass)
 
+  // 暗
   const gammaCorrectionPass = new ShaderPass(GammaCorrectionShader)
+  // gammaCorrectionPass.enabled = false
   effectComposer.addPass(gammaCorrectionPass)
+
+  if (renderer.getPixelRatio() === 1 && !renderer.capabilities.isWebGL2) {
+    // 像素粗糙
+    const smaaPass = new SMAAPass();
+    effectComposer.addPass(smaaPass)
+  }
+
+
+  // 亮度
+  const unrealBloomPass = new UnrealBloomPass();
+  unrealBloomPass.strength = 0.1;
+  unrealBloomPass.radius = 1;
+  unrealBloomPass.threshold = 0.8;
+  // effectComposer.addPass(unrealBloomPass)
+
+  // 环境颜色
+  const Tint = {
+    uniforms: {
+      tDiffuse: { value: null },
+      uTint: { value: null },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main(){
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); 
+        vUv = uv;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D tDiffuse;
+      uniform vec3 uTint;
+      varying vec2 vUv;
+      void main(){
+        vec4 color = texture2D(tDiffuse,vUv);
+        color.rgb +=uTint;
+        gl_FragColor = color;
+      }
+    `
+  }
+  const TintPass = new ShaderPass(Tint)
+  TintPass.material.uniforms.uTint.value = new THREE.Vector3(0,0,0)
+  effectComposer.addPass(TintPass)
+
+  const displacement = {
+    uniforms: {
+      tDiffuse: { value: null },
+      uNormalMap:{value:null}
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main(){
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); 
+        vUv = uv;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D tDiffuse;
+      uniform sampler2D uNormalMap;
+      uniform float uTime;
+      varying vec2 vUv;
+      void main(){
+        vec3 normalColor = texture2D(uNormalMap,vUv).xyz * 2.0 - 1.0;
+        vec2 newUv = vUv + normalColor.xy * 0.1;
+        vec4 color = texture2D(tDiffuse,newUv);
+        vec3 lightDirection = normalize(vec3(-1.0,1.0,0.0));
+        float lightness = clamp(dot(normalColor,lightDirection),0.0,1.0);
+        color.rgb += lightness * 2.0;
+        gl_FragColor = color;
+      }
+    `
+  }
+  const displacementPass = new ShaderPass(displacement)
+  displacementPass.material.uniforms.uNormalMap.value = TextureLoader.load(require('./textures/interfaceNormalMap.png'))
+  effectComposer.addPass(displacementPass)
+
 
 
   const controls = new OrbitControls(camera, canvas)
