@@ -25,3 +25,30 @@ https://www.shadertoy.com/
 ## 着色器函数
 
 https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83
+
+## 着色器案例
+
+### 1.1
+
+```glsl
+  float strength = vUv.x;
+
+  gl_FragColor=vec4(strength,strength,strength,1.);
+```
+
+### 1.2
+
+```glsl
+ float strength = vUv.y;
+
+ gl_FragColor=vec4(strength,strength,strength,1.);
+```
+
+###  1.3
+
+```glsl
+ float  strength = 1.0 - vUv.y;
+
+ gl_FragColor=vec4(strength,strength,strength,1.);
+```
+
