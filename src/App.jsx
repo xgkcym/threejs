@@ -24,7 +24,7 @@ window.addEventListener('resize', () => {
 const gltfloader = new GLTFLoader()
 const textureLoader = new THREE.TextureLoader()
 
-const baked = textureLoader.load(require('./blender/backeds.jpg'))
+const baked = textureLoader.load(require('./blender/mybacked.jpg'))
 baked.encoding = THREE.sRGBEncoding
 baked.flipY = false
 const dracoLoader = new DRACOLoader()
